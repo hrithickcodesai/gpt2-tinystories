@@ -1,0 +1,12 @@
+[project]
+name = "gpt2-tinystories"
+version = "0.1.0"
+description = "GPT2 Trained on TinyStories Dataset"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "datasets>=4.4.1",
+    "numpy>=2.3.5",
+    "tiktoken>=0.12.0",
+    "torch>=2.9.1",
+]

@@ -3,6 +3,9 @@ from dataclasses import dataclass
 
 @dataclass
 class GPTConfig:
+    # -------------------------------------------------------------------------
+    # GPT-2 Small Config
+    # -------------------------------------------------------------------------
     block_size: int = 1024
     vocab_size: int = 50257
     n_layer: int = 12

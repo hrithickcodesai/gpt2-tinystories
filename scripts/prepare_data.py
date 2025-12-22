@@ -1,56 +1,72 @@
-# import os
-# import numpy as np
-# import tiktoken
-# from tqdm import tqdm
-# from datasets import load_dataset
+import os
+import tiktoken
+import numpy as np
+from tqdm import tqdm
+from datasets import load_dataset
 
 
-# num_proc = os.cpu_count()
+num_proc = os.cpu_count()
+print(num_proc)
 
-# dataset = load_dataset("roneneldan/TinyStories", split="train")
+enc = tiktoken.get_encoding("gpt2")
+eot = enc._special_tokens["<|endoftext|>"]
 
-# split_datasets = dataset.train_test_split(test_size=0.1, seed=42, shuffle=True)
-
-# enc = tiktoken.get_encoding("gpt2")
-# eot = enc._special_tokens["<|endoftext|>"]
-
-
-# def tokenize_function(example):
-#     tokens = enc.encode_ordinary(example["text"]) + [eot]
-#     return {"tokens": tokens, "length": len(tokens)}
+dataset = load_dataset("roneneldan/TinyStories")
 
 
-# tokenized_datasets = split_datasets.map(
-#     tokenize_function,
-#     remove_columns=["text"],
-#     num_proc=num_proc,
-#     desc="Tokenizing dataset",
-# )
+def tokenize(row):
+    tokens = enc.encode_ordinary(row["text"]) + [eot]
+    length = len(tokens)
+    return {"tokens": tokens, "length": length}
 
-# for split, ds in tokenized_datasets.items():
-#     arr_len = np.sum(ds["length"], dtype=np.uint64)
-#     folder = "data"
-#     os.makedirs(folder, exist_ok=True)
-#     filename = f"folder/{split}.bin"
 
-#     dtype = np.uint16
+train_ds = dataset["train"]
+val_ds = dataset["validation"]
 
-#     print(f"Writing {filename} ({arr_len / 1e6:.2f}M tokens)...")
-#     arr = np.memmap(filename, dtype=dtype, mode="w+", shape=(arr_len,))
 
-#     idx = 0
-#     total_batches = 1024
-#     for batch_idx in tqdm(range(total_batches), desc=f"Writing {filename}"):
-#         batch = ds.shard(
-#             num_shards=total_batches, index=batch_idx, contiguous=True
-#         ).with_format("numpy")
+train_tokenized_dataset = train_ds.map(
+    tokenize,
+    remove_columns=["text"],
+    num_proc=num_proc,
+    desc="Tokenizing training dataset",
+)
 
-#         arr_batch = np.concatenate(batch["ids"])
+val_tokenized_dataset = val_ds.map(
+    tokenize,
+    remove_columns=["text"],
+    num_proc=num_proc,
+    desc="Tokenizing validation dataset",
+)
 
-#         arr[idx : idx + len(arr_batch)] = arr_batch  # noqa: E203
-#         idx += len(arr_batch)
 
-#     arr.flush()
-#     print(f"Saved {filename}")
+print("Total number of tokens in train set:", np.sum(train_tokenized_dataset["length"]))
+print("Total number of tokens in val set:", np.sum(val_tokenized_dataset["length"]))
 
-# print("Done. Ready for training.")
+
+def save_to_binary(dataset, folder_path, split_name):
+    arr_len = np.sum(dataset["length"], dtype=np.uint64)
+    os.makedirs(folder_path, exist_ok=True)
+    filename = f"data/{split_name}_{arr_len}tkns.bin"
+
+    dtype = np.uint16
+    print(f"Writing {filename} ({arr_len / 1e6:.2f}M tokens)...")
+    arr = np.memmap(filename, dtype=dtype, mode="w+", shape=(arr_len,))
+
+    idx = 0
+    total_batches = 1024
+    for batch_idx in tqdm(range(total_batches), desc=f"Writing {filename}"):
+        batch = dataset.shard(
+            num_shards=total_batches, index=batch_idx, contiguous=True
+        ).with_format("numpy")
+
+        arr_batch = np.concatenate(batch["tokens"]).astype(dtype)
+
+        arr[idx : idx + len(arr_batch)] = arr_batch  # noqa: E203
+        idx += len(arr_batch)
+
+    arr.flush()
+    print(f"Saved {filename}")
+
+
+save_to_binary(train_tokenized_dataset, "data", "train")
+save_to_binary(val_tokenized_dataset, "data", "val")

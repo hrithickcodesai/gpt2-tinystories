@@ -1,9 +1,9 @@
 import os
-import tiktoken
-import numpy as np
-from tqdm import tqdm
-from datasets import load_dataset
 
+import numpy as np
+import tiktoken
+from datasets import load_dataset
+from tqdm import tqdm
 
 num_proc = os.cpu_count()
 print(num_proc)

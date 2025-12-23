@@ -1,3 +1,14 @@
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+# E, F = Standard flake8 rules (syntax errors, undefined names)
+# I    = Isort rules (this sorts your imports)
+select = ["E", "F", "I"]
+
+[tool.ruff.format]
+quote-style = "double"
+
 [project]
 name = "gpt2-tinystories"
 version = "0.1.0"
@@ -10,4 +21,9 @@ dependencies = [
     "numpy>=2.3.5",
     "tiktoken>=0.12.0",
     "torch>=2.9.1",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.10",
 ]

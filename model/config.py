@@ -2,10 +2,7 @@ from dataclasses import dataclass
 
 
 @dataclass
-class GPTConfig:
-    # -------------------------------------------------------------------------
-    # GPT-2 Small Config
-    # -------------------------------------------------------------------------
+class GPT2Config:
     block_size: int = 1024
     vocab_size: int = 50257
     n_layer: int = 12
@@ -14,10 +11,13 @@ class GPTConfig:
     dropout: float = 0.1
     bias: bool = True
 
-    # -------------------------------------------------------------------------
-    # TinyStories Debug Config
-    # -------------------------------------------------------------------------
-    # block_size: int = 256
-    # n_layer: int = 4
-    # n_head: int = 4
-    # n_embd: int = 128
+
+@dataclass
+class BabyGPTConfig:
+    block_size: int = 256
+    vocab_size: int = 50257
+    n_layer: int = 6
+    n_head: int = 6
+    n_embd: int = 384
+    dropout: float = 0.0
+    bias: bool = True

@@ -3,10 +3,13 @@ import torch.nn as nn
 
 
 class Embedding(nn.Module):
-    def __init__(self, vocab_size: int, embedding_dim: int, context_window: int):
+    def __init__(
+        self, vocab_size: int, embedding_dim: int, context_window: int, dropout: float
+    ):
         super().__init__()
         self.emb_layer = nn.Embedding(vocab_size, embedding_dim)
         self.pe_layer = nn.Embedding(context_window, embedding_dim)
+        self.drop = nn.Dropout(dropout)
 
     def forward(self, x: torch.tensor):
         _, T = x.shape
@@ -14,7 +17,8 @@ class Embedding(nn.Module):
 
         indices = torch.arange(T, device=x.device)
         pe_embedding = self.pe_layer(indices)
-        return embedding + pe_embedding
+        x = embedding + pe_embedding
+        return self.drop(x)
 
 
 class LayerNorm(nn.Module):
@@ -31,9 +35,9 @@ class CausalSelfAttention(nn.Module):
         self, embedding_dim: int, n_heads: int, context_window: int, dropout: float
     ):
         super().__init__()
-        assert (
-            embedding_dim % n_heads == 0
-        ), "embedding_dim must be divisible by n_heads"
+        assert embedding_dim % n_heads == 0, (
+            "embedding_dim must be divisible by n_heads"
+        )
         self.head_dim = embedding_dim // n_heads
         self.n_heads = n_heads
 
@@ -135,7 +139,7 @@ class GPT2Model(nn.Module):
         dropout: float,
     ):
         super().__init__()
-        self.embedding = Embedding(vocab_size, n_embd, block_size)
+        self.embedding = Embedding(vocab_size, n_embd, block_size, dropout)
         self.blocks = nn.ModuleList(
             [
                 TransformerBlock(n_embd, n_head, block_size, dropout)

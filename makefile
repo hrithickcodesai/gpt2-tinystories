@@ -16,7 +16,10 @@ format:
 
 
 clean:
+	@echo "--> Cleaning cache and artifacts..."
 	rm -rf .pytest_cache
 	rm -rf .mypy_cache
 	rm -rf .ruff_cache
 	rm -rf build/ dist/ *.egg-info
+	find . -type d -name "__pycache__" -exec rm -rf {} +
+	find . -type f -name "*.pyc" -delete

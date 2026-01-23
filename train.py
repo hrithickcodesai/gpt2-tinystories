@@ -14,6 +14,7 @@ WEIGHT_DECAY = 0.1
 WARMUP_STEPS = 2000
 MAX_STEPS = 175000
 
+torch.set_float32_matmul_precision("high")
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 USE_BFLOAT16 = torch.cuda.is_available() and torch.cuda.is_bf16_supported()
 PT_DTYPE = torch.bfloat16 if USE_BFLOAT16 else torch.float16
@@ -42,7 +43,7 @@ optimizer = torch.optim.AdamW(
 )
 
 
-scaler = torch.cuda.amp.GradScaler(enabled=(PT_DTYPE == torch.float16))
+scaler = torch.amp.GradScaler(enabled=(PT_DTYPE == torch.float16))
 
 print("Preparing datasets and dataloaders...")
 tiny_dataset = TinyStoriesDataset(

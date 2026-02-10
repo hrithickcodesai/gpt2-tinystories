@@ -3,9 +3,7 @@ import torch.nn as nn
 
 
 class Embedding(nn.Module):
-    def __init__(
-        self, vocab_size: int, embedding_dim: int, context_window: int, dropout: float
-    ):
+    def __init__(self, vocab_size: int, embedding_dim: int, context_window: int, dropout: float):
         super().__init__()
         self.emb_layer = nn.Embedding(vocab_size, embedding_dim)
         self.pe_layer = nn.Embedding(context_window, embedding_dim)
@@ -31,13 +29,9 @@ class LayerNorm(nn.Module):
 
 
 class CausalSelfAttention(nn.Module):
-    def __init__(
-        self, embedding_dim: int, n_heads: int, context_window: int, dropout: float
-    ):
+    def __init__(self, embedding_dim: int, n_heads: int, context_window: int, dropout: float):
         super().__init__()
-        assert embedding_dim % n_heads == 0, (
-            "embedding_dim must be divisible by n_heads"
-        )
+        assert embedding_dim % n_heads == 0, "embedding_dim must be divisible by n_heads"
         self.head_dim = embedding_dim // n_heads
         self.n_heads = n_heads
 
@@ -49,9 +43,7 @@ class CausalSelfAttention(nn.Module):
         # causal mask to stop attention to future tokens
         # Need to broadcast later during attention score computation
         # so shape is (1, 1, context_window, context_window)
-        mask = torch.tril(torch.ones(context_window, context_window)).view(
-            1, 1, context_window, context_window
-        )
+        mask = torch.tril(torch.ones(context_window, context_window)).view(1, 1, context_window, context_window)
         self.register_buffer("mask", mask)
 
         # output projection
@@ -73,9 +65,7 @@ class CausalSelfAttention(nn.Module):
         attn_weights = torch.matmul(q, k.transpose(3, 2)) / (self.head_dim**0.5)
 
         # apply causal mask
-        attn_weights = attn_weights.masked_fill(
-            self.mask[:, :, :T, :T] == 0, float("-inf")
-        )
+        attn_weights = attn_weights.masked_fill(self.mask[:, :, :T, :T] == 0, float("-inf"))
 
         # softmax to get attention probabilities
         attn_weights = torch.softmax(attn_weights, dim=-1)
@@ -140,12 +130,7 @@ class GPT2Model(nn.Module):
     ):
         super().__init__()
         self.embedding = Embedding(vocab_size, n_embd, block_size, dropout)
-        self.blocks = nn.ModuleList(
-            [
-                TransformerBlock(n_embd, n_head, block_size, dropout)
-                for _ in range(n_layer)
-            ]
-        )
+        self.blocks = nn.ModuleList([TransformerBlock(n_embd, n_head, block_size, dropout) for _ in range(n_layer)])
         self.ln_f = LayerNorm(n_embd)
         self.head = nn.Linear(n_embd, vocab_size, bias=False)
 

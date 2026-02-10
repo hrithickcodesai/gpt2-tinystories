@@ -14,10 +14,10 @@ class GPT2Config:
 
 @dataclass
 class BabyGPTConfig:
-    block_size: int = 256
+    block_size: int = 512
     vocab_size: int = 50257
-    n_layer: int = 6
-    n_head: int = 6
-    n_embd: int = 384
+    n_layer: int = 8
+    n_head: int = 8
+    n_embd: int = 512
     dropout: float = 0.0
     bias: bool = True

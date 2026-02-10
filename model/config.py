@@ -19,5 +19,5 @@ class BabyGPTConfig:
     n_layer: int = 8
     n_head: int = 8
     n_embd: int = 512
-    dropout: float = 0.0
-    bias: bool = True
+    dropout: float = 0.1
+    bias: bool = False

@@ -4,21 +4,22 @@ import time
 import tiktoken
 import torch
 import torch.nn.functional as F
+import wandb
 from dotenv import load_dotenv
 from torch.utils.data import DataLoader
 
-import wandb
 from model.config import BabyGPTConfig
 from model.gpt2 import GPT2Model
 from training.dataset import TinyStoriesDataset
 
 load_dotenv()
 
-BATCH_SIZE = 4
-LEARNING_RATE = 6e-4
+BATCH_SIZE = 32
+LEARNING_RATE = 3e-4
 WEIGHT_DECAY = 0.1
 WARMUP_STEPS = 1000
 MAX_STEPS = 15000
+NUM_WORKERS = 4
 
 # set up tokenizer
 enc = tiktoken.get_encoding("gpt2")
@@ -32,11 +33,7 @@ WANDB_PROJECT = "tinystories-gpt2"
 torch.set_float32_matmul_precision("high")
 
 # check device if GPU is available, otherwise use CPU/MPS
-DEVICE = (
-    "cuda"
-    if torch.cuda.is_available()
-    else ("mps" if torch.backends.mps.is_available() else "cpu")
-)
+DEVICE = "cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu")
 print(f"Using device: {DEVICE}")
 if DEVICE == "cuda":
     print(f"GPU: {torch.cuda.get_device_name(0)}")
@@ -84,9 +81,7 @@ gpt2.to(DEVICE)
 gpt2 = torch.compile(gpt2)
 
 # AdamW optimizer with weight decay for regularization
-optimizer = torch.optim.AdamW(
-    gpt2.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY
-)
+optimizer = torch.optim.AdamW(gpt2.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
 # turn on grad scaler for mixed precision training
 # should only be enabled if using fp16 otherwise for bf16 and fp32 it is not needed
@@ -94,10 +89,16 @@ scaler = torch.amp.GradScaler(enabled=(PT_DTYPE == torch.float16))
 
 print("Preparing datasets and dataloaders...")
 tiny_dataset = TinyStoriesDataset(
-    data_path="data/train_473992236tkns.bin", block_size=config.block_size
+    data_path="data/train_473992236tkns.bin",
+    block_size=config.block_size,
 )
 train_dataloader = DataLoader(
-    tiny_dataset, batch_size=BATCH_SIZE, shuffle=True, pin_memory=True
+    tiny_dataset,
+    batch_size=BATCH_SIZE,
+    shuffle=True,
+    pin_memory=True,
+    num_workers=NUM_WORKERS,
+    prefetch_factor=2,
 )
 
 
@@ -106,7 +107,12 @@ val_tiny_dataset = TinyStoriesDataset(
     block_size=config.block_size,
 )
 val_dataloader = DataLoader(
-    val_tiny_dataset, batch_size=BATCH_SIZE, shuffle=True, pin_memory=True
+    val_tiny_dataset,
+    batch_size=BATCH_SIZE,
+    shuffle=True,
+    pin_memory=True,
+    num_workers=NUM_WORKERS,
+    prefetch_factor=2,
 )
 
 
@@ -213,9 +219,7 @@ for step in range(1, MAX_STEPS + 1):
         params["lr"] = lr
 
     # enable autocast only if in fp16 mode, for bf16 and fp32 it is not needed
-    with torch.autocast(
-        device_type=DEVICE, dtype=PT_DTYPE, enabled=(PT_DTYPE == torch.float16)
-    ):
+    with torch.autocast(device_type=DEVICE, dtype=PT_DTYPE, enabled=(PT_DTYPE == torch.float16)):
         logits = gpt2(x)
         B, T, C = logits.shape
         loss = F.cross_entropy(logits.view(B * T, C), y.view(B * T))
@@ -248,29 +252,24 @@ for step in range(1, MAX_STEPS + 1):
             "train/tokens_seen": tokens_seen,
             "train/param_norm": get_model_param_norm(gpt2),
             "system/dt": dt * 1000,
-            "system/gpu_mem_allocated(gb)": torch.cuda.max_memory_allocated()
-            / 1e9,  # GB
+            "system/gpu_mem_allocated(gb)": torch.cuda.max_memory_allocated() / 1e9,  # GB
         },
         step=step,
     )
 
-    print(
-        f"Step {step} | Tokens: {tokens_seen} | Loss: {loss.item():.4f} | Speed: {tok_per_sec:.2f} tok/sec"
-    )
-    
+    print(f"Step {step} | Tokens: {tokens_seen} | Loss: {loss.item():.4f} | Speed: {tok_per_sec:.2f} tok/sec")
+
     # if step > 200:
     #     print("Running inference on sample prompts...")
     #     for prompt in sample_prompts:
     #         completion = inference(prompt, max_length=100)
     #         print(f"PROMPT: {prompt}\nOUTPUT: {completion}\n" + "-" * 10)
-            
+
     if step % 1000 == 0:
         print("Evaluating on validation set...")
         val_loss = estimate_val_loss()
         val_perplexity = torch.exp(torch.tensor(val_loss))
-        print(
-            f"Validation Loss: {val_loss:.4f} | Validation Perplexity: {val_perplexity:.4f}"
-        )
+        print(f"Validation Loss: {val_loss:.4f} | Validation Perplexity: {val_perplexity:.4f}")
         wandb.log(
             {
                 "val/loss": val_loss,
